@@ -2,8 +2,8 @@ package com.idev4droid.ble_ag_test
 
 import ACTION_GATT_CONNECTED
 import ACTION_GATT_DISCONNECTED
+import android.R.attr.x
 import android.bluetooth.*
-import android.bluetooth.BluetoothGatt.CONNECTION_PRIORITY_HIGH
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.content.Context
@@ -20,13 +20,21 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.Observer
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import java.lang.reflect.Method
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.util.*
 
 
 class MainActivity : AppCompatActivity() {
 
     private val REQUEST_ENABLE_BT = 1
     private val SCAN_PERIOD: Long = 10000
+    private val TAG = "BLE_TEST"
+
+    private val CONTROL_POINT_SERVICE_UUID = "1f9fac00-65bc-3bbd-3f47-841f6a8bcdd8"
+
+    private val DEVICE_CONTROL_CHARACTERISTIC_UUID = "1f9fac01-65bc-3bbd-3f47-841f6a8bcdd8"
+    private val STEAMING_POINT_CHARACTERISTIC_UUID = "1f9fac04-65bc-3bbd-3f47-841f6a8bcdd8"
 
     private var isConnected = false
         set(value) {
@@ -137,7 +145,9 @@ class MainActivity : AppCompatActivity() {
             val intentAction: String
             when (newState) {
                 BluetoothProfile.STATE_CONNECTED -> {
-                    Log.i("MATT", "CONNECTED")
+                    Log.i(TAG, "===============================")
+                    Log.i(TAG, "CONNECTED ${gatt?.device?.name}")
+                    Log.i(TAG, "===============================")
                     intentAction = ACTION_GATT_CONNECTED
                     isConnected = true
                     runOnUiThread {
@@ -147,7 +157,7 @@ class MainActivity : AppCompatActivity() {
                     gatt?.discoverServices()
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> {
-                    Log.i("MATT", "DISCONNECTED")
+                    Log.i(TAG, "DISCONNECTED")
                     intentAction = ACTION_GATT_DISCONNECTED
                     isConnected = false
                     broadcastUpdate(intentAction)
@@ -157,13 +167,52 @@ class MainActivity : AppCompatActivity() {
 
         override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                Log.i("MATT", "onServicesDiscovered success")
                 gatt?.services?.forEach { service ->
-                    service.characteristics.forEach {
-                        gatt.readCharacteristic(it)
+                    if (service.uuid.toString() == CONTROL_POINT_SERVICE_UUID) {
+                        service.characteristics.forEach {
+                            if (it.uuid == UUID.fromString(STEAMING_POINT_CHARACTERISTIC_UUID)) {
+                                //gatt.readCharacteristic(it)
+                                gatt.setCharacteristicNotification(it, true)
+                                val descriptor = it.getDescriptor(it.descriptors[0].uuid).apply {
+                                    value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                                }
+                                gatt.writeDescriptor(descriptor)
+                                Log.i(TAG, "setCharacteristicNotification")
+                            } else if (it.uuid == UUID.fromString(DEVICE_CONTROL_CHARACTERISTIC_UUID)) {
+                                //val (randomShort, ret) = testPuff(it, gatt)
+                                //Log.i(TAG, "Write bytes $randomShort - ${ret.toHexSpacedString()}")
+                                handler.postDelayed({
+                                    val ret = ByteArray(2)
+                                    ret[0] = 0x2C.toByte()
+                                    ret[1] = 0xF0.toByte()
+                                    it.value = ret
+                                    gatt.writeCharacteristic(it)
+                                    Log.i(TAG, "Write bytes ${ret.toHexSpacedString()}")
+                                }, 500)
+
+                            }
+                        }
+                    } else {
                     }
                 }
+            } else {
+                Log.i(TAG, "onServicesDiscovered failed $status")
             }
+        }
+
+        private fun testPuff(
+            it: BluetoothGattCharacteristic,
+            gatt: BluetoothGatt
+        ): Pair<Int, ByteArray> {
+            val randomShort = Random().nextInt(15000)
+            val ret = ByteArray(4)
+            ret[0] = 0x2F.toByte()
+            ret[1] = 0xF0.toByte()
+            ret[2] = (randomShort and 0xff).toByte()
+            ret[3] = (randomShort shr 8 and 0xff).toByte()
+            it.value = ret
+            gatt.writeCharacteristic(it)
+            return Pair(randomShort, ret)
         }
 
         override fun onCharacteristicRead(
@@ -171,12 +220,134 @@ class MainActivity : AppCompatActivity() {
             characteristic: BluetoothGattCharacteristic?,
             status: Int
         ) {
-            Log.i("MATT", "onCharacteristicRead $status ${characteristic?.uuid} $gatt ")
+
+        }
+
+        private fun getRecordId(bytes: ByteArray): Short {
+            val firstByte: Byte = ((bytes[1].toInt() and 0xF0) ushr 4).toByte()
+            Log.i(TAG, "getRecordId first byte $firstByte")
+            val secondByte: Byte = (((bytes[1].toInt() and 0x0F) shl 4) or ((bytes[2].toInt() and 0xF0) ushr 4)).toByte()
+            Log.i(TAG, "getRecordId second byte $secondByte")
+            return parseBytes(firstByte, secondByte, true)
+        }
+
+        private fun getRemainingCount(bytes: ByteArray): Short {
+            val firstByte: Byte = bytes[3]
+            val secondByte: Byte = (bytes[2].toInt() and 0x0F).toByte()
+            return parseBytes(firstByte, secondByte)
+        }
+
+        private fun getChipId(bytes: ByteArray): String {
+            val chipBytes = ByteArray(7)
+            chipBytes[0] = bytes[4]
+            chipBytes[1] = bytes[5]
+            chipBytes[2] = bytes[6]
+            chipBytes[3] = bytes[7]
+            chipBytes[4] = bytes[8]
+            chipBytes[5] = bytes[9]
+            chipBytes[6] = bytes[10]
+            return chipBytes.toHexString().toUpperCase()
+        }
+
+        private fun getTimestamp(bytes: ByteArray): Int {
+            val firstByte = bytes[11]
+            val secondByte = bytes[12]
+            val thirdByte = bytes[13]
+            val forthByte = bytes[14]
+            return parseBytes(firstByte, secondByte, thirdByte, forthByte)
+        }
+
+        private fun getDuration(bytes: ByteArray): Short {
+            val firstByte = bytes[15]
+            val secondByte = bytes[16]
+            return parseBytes(firstByte, secondByte)
+        }
+
+        private fun getOilCounter(bytes: ByteArray): Int {
+            val firstByte = bytes[17]
+            val secondByte = bytes[18]
+            val thirdByte = bytes[19]
+            val forthByte = 0x00.toByte()
+            return parseBytes(firstByte, secondByte, thirdByte, forthByte)
+        }
+
+        fun ByteArray.toHexSpacedString() = joinToString("") { "%02x ".format(it) }
+        fun ByteArray.toHexString() = joinToString("") { "%02x".format(it) }
+
+        fun parseBytes(firstByte: Byte, secondByte: Byte, bigEndian: Boolean = false): Short {
+            val bb: ByteBuffer = ByteBuffer.allocate(2)
+            bb.order(if (bigEndian) ByteOrder.BIG_ENDIAN else ByteOrder.LITTLE_ENDIAN)
+            bb.put(firstByte)
+            bb.put(secondByte)
+            return bb.getShort(0)
+        }
+
+        fun parseBytes(firstByte: Byte, secondByte: Byte, thirdByte: Byte, forthByte: Byte): Int {
+            val bb: ByteBuffer = ByteBuffer.allocate(4)
+            bb.order(ByteOrder.LITTLE_ENDIAN)
+            bb.put(firstByte)
+            bb.put(secondByte)
+            bb.put(thirdByte)
+            bb.put(forthByte)
+            return bb.getInt(0)
         }
 
         private fun broadcastUpdate(action: String) {
             val intent = Intent(action)
             sendBroadcast(intent)
+        }
+
+        override fun onCharacteristicWrite(
+            gatt: BluetoothGatt?,
+            characteristic: BluetoothGattCharacteristic?,
+            status: Int
+        ) {
+            Log.i(TAG, "onCharacteristicWrite ${characteristic?.uuid} $status")
+        }
+
+        override fun onDescriptorWrite(
+            gatt: BluetoothGatt?,
+            descriptor: BluetoothGattDescriptor?,
+            status: Int
+        ) {
+            Log.i(TAG, "onDescriptorWrite $descriptor")
+        }
+
+        override fun onCharacteristicChanged(
+            gatt: BluetoothGatt?,
+            characteristic: BluetoothGattCharacteristic?
+        ) {
+            val bytes = characteristic?.value ?: return
+            if (characteristic.uuid == UUID.fromString(STEAMING_POINT_CHARACTERISTIC_UUID)) {
+                Log.i(
+                    TAG,
+                    "${characteristic.uuid} properties ${characteristic.properties and BluetoothGattCharacteristic.PROPERTY_WRITE or
+                            (characteristic.properties and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) > 0} original byte ${bytes.toHexSpacedString()}"
+                )
+
+                val recordId = getRecordId(bytes)
+                val remainingCount = getRemainingCount(bytes)
+                val chipId = getChipId(bytes)
+                val timestamp = getTimestamp(bytes)
+                val duration = getDuration(bytes)
+                val oilCounter = getOilCounter(bytes)
+
+                runOnUiThread {
+                    findViewById<TextView>(R.id.deviceInfoRecordId).text = recordId.toString()
+                    findViewById<TextView>(R.id.deviceInfoRemainingCount).text =
+                        remainingCount.toString()
+                    findViewById<TextView>(R.id.deviceInfoChipId).text = chipId
+                    findViewById<TextView>(R.id.deviceInfoTimestamp).text = timestamp.toString()
+                    findViewById<TextView>(R.id.deviceInfoDuration).text = duration.toString()
+                    findViewById<TextView>(R.id.deviceInfoOilCounter).text = oilCounter.toString()
+                }
+            } else if (characteristic.uuid == UUID.fromString(STEAMING_POINT_CHARACTERISTIC_UUID)) {
+                Log.i(
+                    TAG,
+                    "${characteristic.uuid} properties ${characteristic.properties and BluetoothGattCharacteristic.PROPERTY_WRITE or
+                            (characteristic.properties and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) > 0} original byte ${bytes.toHexSpacedString()}"
+                )
+            }
         }
     }
 }

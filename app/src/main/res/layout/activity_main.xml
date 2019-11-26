@@ -74,6 +74,102 @@
         app:layout_constraintStart_toEndOf="@id/deviceInfoStatusLabel"
         app:layout_constraintTop_toTopOf="@id/deviceInfoStatusLabel"/>
 
+    <TextView
+        android:id="@+id/deviceInfoRecordIdLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/record_id"
+        app:layout_constraintTop_toBottomOf="@id/deviceInfoStatusLabel"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <TextView
+        android:id="@+id/deviceInfoRecordId"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        app:layout_constraintStart_toEndOf="@id/deviceInfoRecordIdLabel"
+        app:layout_constraintTop_toTopOf="@id/deviceInfoRecordIdLabel"/>
+
+    <TextView
+        android:id="@+id/deviceInfoRemainingCountLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/remaining_count"
+        app:layout_constraintTop_toBottomOf="@id/deviceInfoRecordIdLabel"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <TextView
+        android:id="@+id/deviceInfoRemainingCount"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        app:layout_constraintStart_toEndOf="@id/deviceInfoRemainingCountLabel"
+        app:layout_constraintTop_toTopOf="@id/deviceInfoRemainingCountLabel"/>
+
+    <TextView
+        android:id="@+id/deviceInfoChipIdLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/chip_id"
+        app:layout_constraintTop_toBottomOf="@id/deviceInfoRemainingCountLabel"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <TextView
+        android:id="@+id/deviceInfoChipId"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        app:layout_constraintStart_toEndOf="@id/deviceInfoChipIdLabel"
+        app:layout_constraintTop_toTopOf="@id/deviceInfoChipIdLabel"/>
+
+    <TextView
+        android:id="@+id/deviceInfoTimestampLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/timestamp"
+        app:layout_constraintTop_toBottomOf="@id/deviceInfoChipIdLabel"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <TextView
+        android:id="@+id/deviceInfoTimestamp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        app:layout_constraintStart_toEndOf="@id/deviceInfoTimestampLabel"
+        app:layout_constraintTop_toTopOf="@id/deviceInfoTimestampLabel"/>
+
+    <TextView
+        android:id="@+id/deviceInfoDurationLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/duration"
+        app:layout_constraintTop_toBottomOf="@id/deviceInfoTimestampLabel"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <TextView
+        android:id="@+id/deviceInfoDuration"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        app:layout_constraintStart_toEndOf="@id/deviceInfoDurationLabel"
+        app:layout_constraintTop_toTopOf="@id/deviceInfoDurationLabel"/>
+
+    <TextView
+        android:id="@+id/deviceInfoOilCounterLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/oil_counter"
+        app:layout_constraintTop_toBottomOf="@id/deviceInfoDurationLabel"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <TextView
+        android:id="@+id/deviceInfoOilCounter"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        app:layout_constraintStart_toEndOf="@id/deviceInfoOilCounterLabel"
+        app:layout_constraintTop_toTopOf="@id/deviceInfoOilCounterLabel"/>
+
     <Button
         android:id="@+id/disconnectButton"
         android:layout_width="wrap_content"
@@ -82,6 +178,6 @@
         android:layout_margin="20dp"
         android:onClick="onDisconnectClicked"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/deviceInfoStatusLabel"/>
+        app:layout_constraintTop_toBottomOf="@id/deviceInfoOilCounterLabel"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
